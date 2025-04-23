@@ -27,7 +27,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 // Macros for common values
 #define SECTOR_SIZE 512
@@ -40,12 +39,9 @@
 // Function prototypes
 void readSector(FILE* disk, int sector, char* buffer);
 void writeSector(FILE* disk, int sector, const char* buffer);
-void printMap(const char* map);
-void printDirectory(const char* dir);
 int findFreeDirectoryEntry(char* dir);
 int findFreeSectors(const char* map, int needed, int* sectorsOut);
 void markSectors(char* map, const int* sectors, int count);
-int addFile(FILE* disk, char* map, char* dir, const char* filename);
 void listFiles(const char* dir, const char* map);
 void printFile(FILE* disk, const char* dir, const char* filename);
 void createFile(FILE* disk, char* map, char* dir, const char* filename);
@@ -105,37 +101,6 @@ void writeSector(FILE* disk, int sector, const char* buffer) {
     fwrite(buffer, 1, SECTOR_SIZE, disk);
 }
 
-// Prints the disk usage map
-void printMap(const char* map) {
-    printf("Disk usage map:\n");
-    printf("      0 1 2 3 4 5 6 7 8 9 A B C D E F\n");
-    printf("     --------------------------------\n");
-    for (int i = 0; i < 16; i++) {
-        printf("0x%X_ ", i);
-        for (int j = 0; j < 16; j++) {
-            unsigned char val = (unsigned char)map[16 * i + j];
-            printf(val == 0xFF ? " X" : " .");
-        }
-        printf("\n");
-    }
-}
-
-// Prints the directory
-void printDirectory(const char* dir) {
-    printf("\nDisk directory:\n");
-    printf("Name     Type Start Length\n");
-    for (int i = 0; i < SECTOR_SIZE; i += DIR_ENTRY_SIZE) {
-        if (dir[i] == 0x00) continue;
-        char name[9] = {0};
-        memcpy(name, &dir[i], 8);
-        char type = dir[i + 8];
-        int start = (unsigned char)dir[i + 9];
-        int length = (unsigned char)dir[i + 10];
-
-        printf("%-8s %4s %5d %6d bytes\n", name, type == 't' ? "text" : "exec", start, length * SECTOR_SIZE);
-    }
-}
-
 // Finds a free directory entry
 int findFreeDirectoryEntry(char* dir) {
     for (int i = 0; i < SECTOR_SIZE; i += DIR_ENTRY_SIZE) {
@@ -160,58 +125,6 @@ void markSectors(char* map, const int* sectors, int count) {
     for (int i = 0; i < count; i++) {
         map[sectors[i]] = (char)0xFF;
     }
-}
-
-// Adds a text file to the disk
-int addFile(FILE* disk, char* map, char* dir, const char* filename) {
-    FILE* input = fopen(filename, "rb");
-    if (!input) {
-        fprintf(stderr, "Error: Cannot open input file '%s'\n", filename);
-        return 0;
-    }
-
-    fseek(input, 0, SEEK_END);
-    long fileSize = ftell(input);
-    fseek(input, 0, SEEK_SET);
-
-    int neededSectors = (fileSize + SECTOR_SIZE - 1) / SECTOR_SIZE;
-    if (neededSectors > MAX_FILE_SIZE) {
-        fprintf(stderr, "Error: File too large (max %d sectors)\n", MAX_FILE_SIZE);
-        fclose(input);
-        return 0;
-    }
-
-    int sectors[neededSectors];
-    if (!findFreeSectors(map, neededSectors, sectors)) {
-        fprintf(stderr, "Error: Not enough free sectors\n");
-        fclose(input);
-        return 0;
-    }
-
-    int dirPos = findFreeDirectoryEntry(dir);
-    if (dirPos < 0) {
-        fprintf(stderr, "Error: No free directory entry\n");
-        fclose(input);
-        return 0;
-    }
-
-    // Set directory entry
-    memset(&dir[dirPos], 0, DIR_ENTRY_SIZE);
-    strncpy(&dir[dirPos], filename, 8);
-    dir[dirPos + 8] = 't'; // file type
-    dir[dirPos + 9] = (char)sectors[0]; // start
-    dir[dirPos + 10] = (char)neededSectors; // length
-
-    // Write file content to sectors
-    for (int i = 0; i < neededSectors; i++) {
-        char buffer[SECTOR_SIZE] = {0};
-        fread(buffer, 1, SECTOR_SIZE, input);
-        writeSector(disk, sectors[i], buffer);
-    }
-
-    markSectors(map, sectors, neededSectors);
-    fclose(input);
-    return 1;
 }
 
 // List the files on the disk
