@@ -30,10 +30,7 @@
 
 // Macros for common values
 #define SECTOR_SIZE 512
-#define DISK_MAP_SECTOR 256
-#define DIR_SECTOR 257
 #define MAX_SECTORS 2880
-#define MAX_FILE_SIZE 26
 #define DIR_ENTRY_SIZE 16
 
 // Function prototypes
