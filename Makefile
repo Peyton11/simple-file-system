@@ -1,9 +1,5 @@
 # Makefile for running O.S. Lab 3: A Simple File System
 
-# Target to run the program
-run:
-	@./filesys
-
 # The target to build the program
 build:
 	gcc -o filesys filesys.c
