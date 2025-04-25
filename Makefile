@@ -6,4 +6,4 @@ build:
 
 # Clean up the generated files
 clean:
-	rm -f main
+	rm -f filesys
